@@ -51,17 +51,17 @@ public class WeatherService : IWeatherService
     {
         try
         {
-            var locationIds = locations.Split(',');
+            var locationIds = locations.Split(',').Distinct();
 
             var mapper = new WeatherMapper(new KelvinWeatherMapper(_mapper));
             switch (unit.ToLower())
             {
                 case "celsius":
-                    temperature = temperature + 273.15;
+                    temperature = TemperatureConverters.CelsiusToKelvin(temperature);
                     mapper = new WeatherMapper(new CelsiusWeatherMapper(_mapper));
                     break;
                 case "fahrenheit":
-                    temperature = (temperature - 32) * 5 / 9 + 273.15;
+                    temperature = TemperatureConverters.FahrenheitToKelvin(temperature);
                     mapper = new WeatherMapper(new FahrenheitWeatherMapper(_mapper));
                     break ;
                 default:
