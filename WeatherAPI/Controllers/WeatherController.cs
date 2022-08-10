@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using System.Net;
 using WeatherAPI.Application.Interfaces;
 using WeatherAPI.Domain.ViewModels;
 
@@ -9,10 +11,12 @@ namespace WeatherAPI.API.Controllers;
 public class WeatherController : ControllerBase
 {
     private readonly IWeatherService _weatherService;
+    private readonly ILogger<WeatherController> _logger;
 
-    public WeatherController(IWeatherService weatherService)
+    public WeatherController(IWeatherService weatherService, ILogger<WeatherController> logger)
     {
         _weatherService = weatherService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -34,9 +38,35 @@ public class WeatherController : ControllerBase
 
             return Ok(result);
         }
+        catch (HttpRequestException ex)
+        {
+            
+
+            _logger.LogError(ex.Message);
+            _logger.LogError(ex.StackTrace);
+
+            var inner = ex.InnerException;
+            while (inner is not null)
+            {
+                _logger.LogError(inner.StackTrace);
+                inner = inner.InnerException;
+            }
+
+            if (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                return NotFound();
+            }
+
+            else
+            {
+                return StatusCode(500, "Could not fetch data from the weather service. Please try again later.");
+            }
+        }
         catch (Exception ex)
         {
-            return StatusCode(500, ex.Message);
+            _logger.LogError(ex.Message);
+            _logger.LogError(ex.StackTrace);
+            return StatusCode(500);
         }
     }
 
@@ -65,6 +95,7 @@ public class WeatherController : ControllerBase
 
             if (result is null)
             {
+
                 return NotFound();
             }
 
@@ -74,9 +105,33 @@ public class WeatherController : ControllerBase
         {
             return StatusCode(400, invalidEx.Message);
         }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex.Message);
+            _logger.LogError(ex.StackTrace);
+
+            var inner = ex.InnerException;
+            while (inner is not null)
+            {
+                _logger.LogError(inner.StackTrace);
+                inner = inner.InnerException;
+            }
+
+            if (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                return NotFound();
+            }
+
+            else
+            {
+                return StatusCode(500, "Could not fetch data from the weather service. Please try again later.");
+            }
+        }
         catch (Exception ex)
         {
-            return StatusCode(500, ex.Message);
+            _logger.LogError(ex.Message);
+            _logger.LogError(ex.StackTrace);
+            return StatusCode(500);
         }
     }
 }
