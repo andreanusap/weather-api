@@ -1,5 +1,6 @@
 using LazyCache;
 using WeatherAPI.Application.Commons;
+using WeatherAPI.Application.Extensions;
 using WeatherAPI.Application.Interfaces;
 using WeatherAPI.Application.Services;
 using WeatherAPI.Domain;
@@ -26,6 +27,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.ConfigureCustomExceptionMiddleware();
 
 app.UseHttpsRedirection();
 

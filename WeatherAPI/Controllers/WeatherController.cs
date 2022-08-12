@@ -11,12 +11,10 @@ namespace WeatherAPI.API.Controllers;
 public class WeatherController : ControllerBase
 {
     private readonly IWeatherService _weatherService;
-    private readonly ILogger<WeatherController> _logger;
 
-    public WeatherController(IWeatherService weatherService, ILogger<WeatherController> logger)
+    public WeatherController(IWeatherService weatherService)
     {
         _weatherService = weatherService;
-        _logger = logger;
     }
 
     /// <summary>
@@ -27,47 +25,14 @@ public class WeatherController : ControllerBase
     [HttpGet("locations/{locationId}")]
     public async Task<ActionResult<WeatherDataViewModel>> GetByLocation(string locationId)
     {
-        try
+        var result = await _weatherService.GetWeatherByLocation(locationId);
+
+        if (result is null)
         {
-            var result = await _weatherService.GetWeatherByLocation(locationId);
-
-            if (result is null)
-            {
-                return NotFound();
-            }
-
-            return Ok(result);
+            return NotFound();
         }
-        catch (HttpRequestException ex)
-        {
-            
 
-            _logger.LogError(ex.Message);
-            _logger.LogError(ex.StackTrace);
-
-            var inner = ex.InnerException;
-            while (inner is not null)
-            {
-                _logger.LogError(inner.StackTrace);
-                inner = inner.InnerException;
-            }
-
-            if (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                return NotFound();
-            }
-
-            else
-            {
-                return StatusCode(500, "Could not fetch data from the weather service. Please try again later.");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex.Message);
-            _logger.LogError(ex.StackTrace);
-            return StatusCode(500);
-        }
+        return Ok(result);
     }
 
     /// <summary>
@@ -80,58 +45,23 @@ public class WeatherController : ControllerBase
     [HttpGet("summary")]
     public async Task<ActionResult<IEnumerable<WeatherDataViewModel>>> GetWeatherSummaries([FromQuery] string unit, [FromQuery] double temperature, [FromQuery] string locations)
     {
-        try
+        var unitStrings = new[] { "celsius", "fahrenheit" };
+
+        if (string.IsNullOrWhiteSpace(unit)
+            || !unitStrings.Contains(unit)
+            || string.IsNullOrWhiteSpace(locations))
         {
-            var unitStrings = new[] { "celsius", "fahrenheit" };
-
-            if (string.IsNullOrWhiteSpace(unit)
-                || !unitStrings.Contains(unit)
-                || string.IsNullOrWhiteSpace(locations))
-            {
-                return BadRequest();
-            }
-
-            var result = await _weatherService.GetWeatherSummary(unit, temperature, locations);
-
-            if (result is null)
-            {
-
-                return NotFound();
-            }
-
-            return Ok(result);
+            return BadRequest();
         }
-        catch (InvalidCastException invalidEx)
+
+        var result = await _weatherService.GetWeatherSummary(unit, temperature, locations);
+
+        if (result is null)
         {
-            return StatusCode(400, invalidEx.Message);
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger.LogError(ex.Message);
-            _logger.LogError(ex.StackTrace);
 
-            var inner = ex.InnerException;
-            while (inner is not null)
-            {
-                _logger.LogError(inner.StackTrace);
-                inner = inner.InnerException;
-            }
-
-            if (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                return NotFound();
-            }
-
-            else
-            {
-                return StatusCode(500, "Could not fetch data from the weather service. Please try again later.");
-            }
+            return NotFound();
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex.Message);
-            _logger.LogError(ex.StackTrace);
-            return StatusCode(500);
-        }
+
+        return Ok(result);
     }
 }
