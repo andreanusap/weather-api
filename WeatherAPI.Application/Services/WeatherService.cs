@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using Microsoft.Extensions.Logging;
 using WeatherAPI.Application.Commons;
 using WeatherAPI.Application.Interfaces;
 using WeatherAPI.Domain.Interfaces;
@@ -11,13 +10,11 @@ public class WeatherService : IWeatherService
 {
     private readonly IExternalWeatherService _externalWeatherService;
     private readonly IMapper _mapper;
-    private readonly ILogger<WeatherService> _logger;
 
-    public WeatherService(IExternalWeatherService externalWeatherService, IMapper mapper, ILogger<WeatherService> logger)
+    public WeatherService(IExternalWeatherService externalWeatherService, IMapper mapper)
     {
         _externalWeatherService = externalWeatherService;
         _mapper = mapper;
-        _logger = logger;
     }
 
     /// <summary>
@@ -29,17 +26,9 @@ public class WeatherService : IWeatherService
     /// <returns>List of Weather Data View Model</returns>
     public async Task<WeatherDataViewModel> GetWeatherByLocation(string locationId)
     {
-        try
-        {
-            var weatherData = await _externalWeatherService.Get5DaysForecastByCityId(locationId);
-            var mapper = new WeatherMapper(new KelvinWeatherMapper(_mapper));
-            return weatherData is null ? null : mapper.Map(weatherData);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to get weather by location");
-            throw ex;
-        }
+        var weatherData = await _externalWeatherService.Get5DaysForecastByCityId(locationId);
+        var mapper = new WeatherMapper(new KelvinWeatherMapper(_mapper));
+        return weatherData is null ? null : mapper.Map(weatherData);
     }
 
     /// <summary>
@@ -49,53 +38,45 @@ public class WeatherService : IWeatherService
     /// <returns>Weather Data View Model</returns>
     public async Task<IEnumerable<WeatherDataViewModel>> GetWeatherSummary(string unit, double temperature, string locations)
     {
-        try
+        var locationIds = locations.Split(',').Distinct();
+
+        var mapper = new WeatherMapper(new KelvinWeatherMapper(_mapper));
+        switch (unit.ToLower())
         {
-            var locationIds = locations.Split(',').Distinct();
+            case "celsius":
+                temperature = TemperatureConverters.CelsiusToKelvin(temperature);
+                mapper = new WeatherMapper(new CelsiusWeatherMapper(_mapper));
+                break;
+            case "fahrenheit":
+                temperature = TemperatureConverters.FahrenheitToKelvin(temperature);
+                mapper = new WeatherMapper(new FahrenheitWeatherMapper(_mapper));
+                break;
+            default:
+                break;
+        }
 
-            var mapper = new WeatherMapper(new KelvinWeatherMapper(_mapper));
-            switch (unit.ToLower())
+        var todayDate = DateTime.UtcNow;
+
+        var weatherDataList = new List<WeatherDataViewModel>();
+
+        foreach (var locationId in locationIds)
+        {
+            if (!string.IsNullOrWhiteSpace(locationId.Trim()))
             {
-                case "celsius":
-                    temperature = TemperatureConverters.CelsiusToKelvin(temperature);
-                    mapper = new WeatherMapper(new CelsiusWeatherMapper(_mapper));
-                    break;
-                case "fahrenheit":
-                    temperature = TemperatureConverters.FahrenheitToKelvin(temperature);
-                    mapper = new WeatherMapper(new FahrenheitWeatherMapper(_mapper));
-                    break ;
-                default:
-                    break;
-            }
+                var weatherData = await _externalWeatherService.Get5DaysForecastByCityId(locationId.Trim());
 
-            var todayDate = DateTime.UtcNow;
-
-            var weatherDataList = new List<WeatherDataViewModel>();
-
-            foreach (var locationId in locationIds)
-            {
-                if (!string.IsNullOrWhiteSpace(locationId.Trim()))
+                if (weatherData is not null)
                 {
-                    var weatherData = await _externalWeatherService.Get5DaysForecastByCityId(locationId.Trim());
+                    weatherData.List = weatherData.List
+                        .Where(x => DateTimeOffset.FromUnixTimeSeconds(x.Date).UtcDateTime.Date == todayDate.AddDays(1).Date
+                                    && x.Main.Temp >= temperature)
+                        .ToList();
 
-                    if (weatherData is not null)
-                    {
-                        weatherData.List = weatherData.List
-                            .Where(x => DateTimeOffset.FromUnixTimeSeconds(x.Date).UtcDateTime.Date == todayDate.AddDays(1).Date
-                                        && x.Main.Temp >= temperature)
-                            .ToList();
-
-                        weatherDataList.Add(mapper.Map(weatherData));
-                    }
+                    weatherDataList.Add(mapper.Map(weatherData));
                 }
             }
+        }
 
-            return weatherDataList;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to get weather summary for favourite locations");
-            throw ex;
-        }
+        return weatherDataList;
     }
 }

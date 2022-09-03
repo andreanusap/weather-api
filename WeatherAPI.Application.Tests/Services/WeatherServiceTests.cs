@@ -21,7 +21,6 @@ public class WeatherServiceTests
     static readonly Fixture Fixture = new Fixture();
 
     private IWeatherService _weatherService;
-    private Mock<ILogger<WeatherService>> mockLogger = new Mock<ILogger<WeatherService>>();
     private Mock<IMapper> mockMapper = new Mock<IMapper>();
     private Mock<IExternalWeatherService> mockExternalWeatherService = new Mock<IExternalWeatherService>();
 
@@ -34,7 +33,7 @@ public class WeatherServiceTests
             .Setup(s => s.Get5DaysForecastByCityId(It.IsAny<string>()))
             .ReturnsAsync(mockWeather);
 
-        _weatherService = new WeatherService(mockExternalWeatherService.Object, mockMapper.Object, mockLogger.Object);
+        _weatherService = new WeatherService(mockExternalWeatherService.Object, mockMapper.Object);
 
         //act
         var result = await _weatherService.GetWeatherByLocation("mockId");
@@ -65,7 +64,7 @@ public class WeatherServiceTests
         });
         var mapper = mockMapper.CreateMapper();
 
-        _weatherService = new WeatherService(mockExternalWeatherService.Object, mapper, mockLogger.Object);
+        _weatherService = new WeatherService(mockExternalWeatherService.Object, mapper);
 
         //act
         var result = await _weatherService.GetWeatherByLocation(locationId.ToString());
@@ -73,21 +72,6 @@ public class WeatherServiceTests
         //assert
         result.Should().BeOfType<WeatherDataViewModel>();
         result.City.Id.Should().Be(locationId);
-    }
-
-    [Fact]
-    public async Task GetWeatherByLocation_ShouldThrowException_WhenExternalWeatherServiceFails()
-    {
-        //arrange
-        mockExternalWeatherService
-            .Setup(s => s.Get5DaysForecastByCityId(It.IsAny<string>()))
-            .ThrowsAsync(new Exception());
-
-        _weatherService = new WeatherService(mockExternalWeatherService.Object, mockMapper.Object, mockLogger.Object);
-
-        //act & assert
-        await Assert.ThrowsAsync<Exception>(() => _weatherService.GetWeatherByLocation(It.IsAny<string>()));
-        mockLogger.VerifyAtLeastOneLogMessagesContains("Failed to get weather by location");
     }
 
     [Fact]
@@ -127,7 +111,7 @@ public class WeatherServiceTests
         });
         var mapper = mockMapper.CreateMapper();
 
-        _weatherService = new WeatherService(mockExternalWeatherService.Object, mapper, mockLogger.Object);
+        _weatherService = new WeatherService(mockExternalWeatherService.Object, mapper);
 
         //act
         var result = await _weatherService.GetWeatherSummary("celsius", temperature, "12345");
@@ -174,7 +158,7 @@ public class WeatherServiceTests
         });
         var mapper = mockMapper.CreateMapper();
 
-        _weatherService = new WeatherService(mockExternalWeatherService.Object, mapper, mockLogger.Object);
+        _weatherService = new WeatherService(mockExternalWeatherService.Object, mapper);
 
         //act
         var result = await _weatherService.GetWeatherSummary("fahrenheit", temperature, "12345");
@@ -182,21 +166,5 @@ public class WeatherServiceTests
         //assert
         result.Should().BeOfType<List<WeatherDataViewModel>>();
         result.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public async Task GetWeatherSummary_ShouldThrowException_WhenExternalWeatherServiceFails()
-    {
-        //arrange
-        mockExternalWeatherService
-            .Setup(s => s.Get5DaysForecastByCityId(It.IsAny<string>()))
-            .ThrowsAsync(new Exception());
-
-        //act
-        _weatherService = new WeatherService(mockExternalWeatherService.Object, mockMapper.Object, mockLogger.Object);
-
-        //assert
-        await Assert.ThrowsAsync<Exception>(() => _weatherService.GetWeatherSummary("celsius", 0, "12345"));
-        mockLogger.VerifyAtLeastOneLogMessagesContains("Failed to get weather summary for favourite locations");
     }
 }

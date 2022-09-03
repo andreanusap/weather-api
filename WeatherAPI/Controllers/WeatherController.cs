@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using System.Net;
 using WeatherAPI.Application.Interfaces;
 using WeatherAPI.Domain.ViewModels;
 
@@ -23,21 +25,14 @@ public class WeatherController : ControllerBase
     [HttpGet("locations/{locationId}")]
     public async Task<ActionResult<WeatherDataViewModel>> GetByLocation(string locationId)
     {
-        try
-        {
-            var result = await _weatherService.GetWeatherByLocation(locationId);
+        var result = await _weatherService.GetWeatherByLocation(locationId);
 
-            if (result is null)
-            {
-                return NotFound();
-            }
-
-            return Ok(result);
-        }
-        catch (Exception ex)
+        if (result is null)
         {
-            return StatusCode(500, ex.Message);
+            return NotFound();
         }
+
+        return Ok(result);
     }
 
     /// <summary>
@@ -50,33 +45,23 @@ public class WeatherController : ControllerBase
     [HttpGet("summary")]
     public async Task<ActionResult<IEnumerable<WeatherDataViewModel>>> GetWeatherSummaries([FromQuery] string unit, [FromQuery] double temperature, [FromQuery] string locations)
     {
-        try
+        var unitStrings = new[] { "celsius", "fahrenheit" };
+
+        if (string.IsNullOrWhiteSpace(unit)
+            || !unitStrings.Contains(unit)
+            || string.IsNullOrWhiteSpace(locations))
         {
-            var unitStrings = new[] { "celsius", "fahrenheit" };
-
-            if (string.IsNullOrWhiteSpace(unit)
-                || !unitStrings.Contains(unit)
-                || string.IsNullOrWhiteSpace(locations))
-            {
-                return BadRequest();
-            }
-
-            var result = await _weatherService.GetWeatherSummary(unit, temperature, locations);
-
-            if (result is null)
-            {
-                return NotFound();
-            }
-
-            return Ok(result);
+            return BadRequest();
         }
-        catch (InvalidCastException invalidEx)
+
+        var result = await _weatherService.GetWeatherSummary(unit, temperature, locations);
+
+        if (result is null)
         {
-            return StatusCode(400, invalidEx.Message);
+
+            return NotFound();
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
+
+        return Ok(result);
     }
 }
